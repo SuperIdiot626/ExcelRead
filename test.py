@@ -45,7 +45,12 @@ def read_data(file_path,input_type):
     if(input_type=="alipay"):
         i=0
         while(i<len(data)):
-            data[i][0]= datetime.datetime.strptime(data[i][0], time_format) #修改为统一的时间格式
+            try:
+                data[i][0]= datetime.datetime.strptime(data[i][0], time_format) #修改为统一的时间格式
+            except ValueError:
+                time_format="%Y/%m/%d %H:%M"
+                data[i][0]= datetime.datetime.strptime(data[i][0], time_format) #修改为统一的时间格式
+
             if(data[i][8] in except_alipay or float(data[i][6])==0):        #交易状态以及交易金额判断
                 del data[i]
                 continue
@@ -114,19 +119,24 @@ def read_data(file_path,input_type):
                 i=i+1
 
             data[i][3]=data[i][2]+data[i][3]    #讲其他无需进一步处理的交易记录的交易方和商品对象合在一起
-            
+
 
             temp=[data[i][0],data[i][3],data[i][4],data[i][5][1:],"微信",]
             data[i]=temp
             i+=1
-
-
-
+    
     return data
 
 def format_data(data):
     data.sort()
+    month_map={}
     for i in data:
+        ym=str(i[0].year)+"-"+str(i[0].month).rjust(2,"0")  #将年月设置为XXXX-XX的形式
+        if ym not in month_map.keys():                      #记录每个月出现记账的天数
+            month_map[ym]=[i[0].day]                        #如果不存在某年月，就添加键
+        else:
+            month_map[ym].append(i[0].day)                  #若已存在就进行日的增加
+        
         if i[-1]=="微信":
             if i[-3]=="收入":
                 i.append(color_orange)
@@ -143,61 +153,122 @@ def format_data(data):
                 i.append(color_gren)
             else:
                 i.append(color_none)
-
-    return data
-
-def write_excel_format():
-    wb=openpyxl.Workbook()
-    sheet=wb.worksheets[0]
-    sheet.column_dimensions["A"].width=20
-    sheet.column_dimensions["B"].width=30
-    sheet.column_dimensions["C"].width=20
-    sheet.column_dimensions["D"].width=20
-    sheet.column_dimensions["E"].width=20
-    sheet.column_dimensions["F"].width=20
-    sheet.column_dimensions["G"].width=20
-    sheet.column_dimensions["H"].width=20
-
-    sheet['A1'].value='日期'
-    sheet['B1'].value='项目'
-    sheet['C1'].value='金额'
-    sheet['D1'].value='可报销支出'
-    sheet['E1'].value='其他支出'
-    sheet['F1'].value='群收款'
-    sheet['G1'].value='收入'
-    sheet['H1'].value='备注'
     
-    sheet['A2'].value='开始时间'
-    sheet['B2'].value='截止时间'
+    max_days=0
+    main_ym=""
+    for key in month_map.keys():
+        days_in_month=len(set(month_map[key]))
+        if max_days<days_in_month:
+            max_days=days_in_month
+            main_ym=key
+    
+    return main_ym,data
 
-    sheet['A5'].value='收入'
-    sheet['A6'].value='群收款收入'
-    sheet['A7'].value='支出'
+def write_excel_format(main_ym):
 
-    sheet['A9'].value='可报销支出'
-    sheet['A10'].value='其他支出'
-    sheet['A11'].value='实际个人支出'
+    year  = main_ym[0:4]    
+    month = main_ym[5:]
+    month_firstday = datetime.datetime.strptime("%s-%s-1"%(year,month), '%Y-%m-%d')
+    print(month_firstday.strftime("%Y-%m-%d"))
+    month_firstday_weekday = month_firstday.weekday()+1
+    if    month_firstday.weekday()==1:
+        pass
+    elif  month_firstday.weekday()<=3:
+        month_firstday = month_firstday- datetime.timedelta(days=month_firstday_weekday-1)
+    elif  month_firstday.weekday()>=4:
+        month_firstday = month_firstday+ datetime.timedelta(days=8-month_firstday_weekday)
+    if month_firstday.weekday()+1!=1:
+        print("记账起始日期不为周一，请检查！") #检查用
+    print(month_firstday.strftime("%Y-%m-%d"))
 
-    sheet['A20'].value='日期'
-    sheet['B20'].value='项目'
-    sheet['C20'].value='金额'
-    sheet['D20'].value='可报销支出'
-    sheet['E20'].value='其他支出'
-    sheet['F20'].value='群收款'
-    sheet['G20'].value='收入'
-    sheet['H20'].value='备注'
+
+    month =(int(month)+1)
+    if month==13:
+        year =str(int(year)+1)
+        month=1
+    month=str(month).rjust(2,"0")
+    month_lastday = datetime.datetime.strptime("%s-%s-1"%(year,month), '%Y-%m-%d')
+    month_lastday = month_lastday- datetime.timedelta(days=1)
+    print(month_lastday.strftime("%Y-%m-%d"))
+    month_lastday_weekday = month_lastday.weekday()+1
+
+    if    month_lastday.weekday()==7:
+        pass
+    elif  month_lastday.weekday()<=3:
+        month_lastday = month_lastday- datetime.timedelta(days=month_lastday_weekday)
+    elif  month_lastday.weekday()>=4:
+        month_lastday = month_lastday+ datetime.timedelta(days=8-month_lastday_weekday)
+    if month_lastday.weekday()+1!=7:
+        print("记账结束日期不为周日，请检查！") #检查用
+    print(month_lastday.strftime("%Y-%m-%d"))
+
+    wb=openpyxl.Workbook()
+    del wb["Sheet"]         #打开新的excel若为空，会自动创建名为"Sheet"的工作表
+    for i in range(5):
+        wb.create_sheet(index=i,title='第%s周'%(i+1))
+        sheet=wb.worksheets[i]
+        sheet.column_dimensions["A"].width=20
+        sheet.column_dimensions["B"].width=30
+        sheet.column_dimensions["C"].width=20
+        sheet.column_dimensions["D"].width=20
+        sheet.column_dimensions["E"].width=20
+        sheet.column_dimensions["F"].width=20
+        sheet.column_dimensions["G"].width=20
+        sheet.column_dimensions["H"].width=20
+
+        
+
+        sheet['A1'].value='日期'
+        sheet['B1'].value='项目'
+        sheet['C1'].value='金额'
+        sheet['D1'].value='可报销支出'
+        sheet['E1'].value='其他支出'
+        sheet['F1'].value='群收款'
+        sheet['G1'].value='收入'
+        sheet['H1'].value='备注'
+        
+        sheet['A2'].value='开始时间'
+        sheet['B2'].value='截止时间'
+
+        sheet['A3'].value=month_firstday.strftime("%Y-%m-%d")+" 00:00:01"
+        month_firstday+=datetime.timedelta(days=6)
+        sheet['B3'].value=month_firstday.strftime("%Y-%m-%d")+" 23:59:59"
+        month_firstday+=datetime.timedelta(days=1)
+
+
+        sheet['A5'].value='收入'
+        sheet['A6'].value='群收款收入'
+        sheet['A7'].value='支出'
+
+        sheet['A9'].value='可报销支出'
+        sheet['A10'].value='其他支出'
+        sheet['A11'].value='实际个人支出'
+
+        sheet['A20'].value='日期'
+        sheet['B20'].value='项目'
+        sheet['C20'].value='金额'
+        sheet['D20'].value='可报销支出'
+        sheet['E20'].value='其他支出'
+        sheet['F20'].value='群收款'
+        sheet['G20'].value='收入'
+        sheet['H20'].value='备注'
+    print(wb.sheetnames)
+
 
     return wb
 
 def write_excel_data(wb,data):
+    
     startline=20
     week_day=-1
-    sheet=wb.worksheets[0]
+    sheet=wb.worksheets[1]
+    sheet_num=0
     for i in data:
         temp_week_day=i[0].weekday()+1
         if temp_week_day!=week_day:
             week_day=temp_week_day
             startline+=1
+            sheet['A'+str(startline)].value=i[0].strftime("%m月%d日")
         sheet['B'+str(startline)].value=i[1]
         sheet['B'+str(startline)].fill=PatternFill('solid', fgColor=i[-1])
         sheet['B'+str(startline)].font=Font(name="等线",size=11)
@@ -212,20 +283,25 @@ def write_excel_data(wb,data):
             sheet['C'+str(startline)].value=str(i[3])
         startline+=1
 
-
-
+##############################################################
+#data_alipay=read_data("alipay_record_20230924_235400.csv","alipay")
+data_alipay=read_data(r"C:\Users\WYZ\Desktop\alipay_record_20231010_214653_密码为身份证号码后6位\8月.csv","alipay")
 data_wechat=read_data("副本 微信支付账单(20230917-20230924) - 副本.csv","wechat")
-data_alipay=read_data("alipay_record_20230924_235400.csv","alipay")
 data_total=data_alipay+data_wechat
+
 del data_alipay
 del data_wechat
-data_total=format_data(data_total)
 
 
-wb=write_excel_format()
+main_month,data_total=format_data(data_total)
 
-write_excel_data(wb,data_total)
-excenName="账单"
+wb=write_excel_format(main_month)         #写入初始框架
+
+write_excel_data(wb,data_total) #写入数据
+
+
+
+excenName="账单"        #尝试保存
 i=0
 while(1):
     try:

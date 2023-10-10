@@ -18,7 +18,7 @@ color_yellow="FFFF00"
 color_red="FF0000"
 color_orange="FFC000"
 color_blue="00B0F0"
-color_none="FFFFFF"
+color_none=None
 
 
 def read_data(file_path,input_type):
@@ -216,8 +216,6 @@ def write_excel_format(main_ym):
         sheet.column_dimensions["G"].width=20
         sheet.column_dimensions["H"].width=20
 
-        
-
         sheet['A1'].value='日期'
         sheet['B1'].value='项目'
         sheet['C1'].value='金额'
@@ -239,6 +237,9 @@ def write_excel_format(main_ym):
         sheet['A5'].value='收入'
         sheet['A6'].value='群收款收入'
         sheet['A7'].value='支出'
+        sheet['B5'].value="=SUMIF(G:G,\">0\")"
+        sheet['B6'].value="=SUMIF(F:F,\">0\")"
+        sheet['B7'].value="=SUMIF(C:C,\">0\")"
 
         sheet['A9'].value='可报销支出'
         sheet['A10'].value='其他支出'
@@ -258,34 +259,52 @@ def write_excel_format(main_ym):
     return wb
 
 def write_excel_data(wb,data):
-    
+
     startline=20
-    week_day=-1
-    sheet=wb.worksheets[1]
+    old_week_day=-1
     sheet_num=0
+    sheet=wb.worksheets[sheet_num]
+    sheet_time_start=datetime.datetime.strptime(sheet["A3"].value, "%Y-%m-%d %H:%M:%S")
+    sheet_time_over =datetime.datetime.strptime(sheet["B3"].value, "%Y-%m-%d %H:%M:%S")
     for i in data:
-        temp_week_day=i[0].weekday()+1
-        if temp_week_day!=week_day:
-            week_day=temp_week_day
+        if i[0]<sheet_time_start:           #若有时间不到记录范围，就判断下一条信息
+            continue        
+        if i[0]>sheet_time_over:            #若有时间超过了范围，就进入下一个sheet
+            sheet_num+=1                    #同时初始化所有相关值
+            if sheet_num>4:
+                break
+            sheet=wb.worksheets[sheet_num]
+            startline=20
+            old_week_day=-1
+            sheet_time_start=datetime.datetime.strptime(sheet["A3"].value, "%Y-%m-%d %H:%M:%S")
+            sheet_time_over =datetime.datetime.strptime(sheet["B3"].value, "%Y-%m-%d %H:%M:%S")
+        
+        now_week_day=i[0].weekday()+1       #如果出现日期变换，就要多加一行
+        if now_week_day!=old_week_day:
+            old_week_day=now_week_day
             startline+=1
             sheet['A'+str(startline)].value=i[0].strftime("%m月%d日")
         sheet['B'+str(startline)].value=i[1]
-        sheet['B'+str(startline)].fill=PatternFill('solid', fgColor=i[-1])
+        if i[-1]!=None:
+            sheet['B'+str(startline)].fill=PatternFill('solid', fgColor=i[-1])
+        else:
+            sheet['B'+str(startline)].fill=openpyxl.styles.PatternFill(fill_type=None)
+
         sheet['B'+str(startline)].font=Font(name="等线",size=11)
 
         if i[2]=="收入" :
-            sheet['G'+str(startline)].value=str(i[3])
+            sheet['G'+str(startline)].value=float(i[3])
         elif i[2]=="资金周转":
             sheet['B'+str(startline)].value=str(i[1]+i[3])
         elif i[2]=="群收款收入":
-            sheet['F'+str(startline)].value=str(i[3])
+            sheet['F'+str(startline)].value=float(i[3])
         else:
-            sheet['C'+str(startline)].value=str(i[3])
+            sheet['C'+str(startline)].value=float(i[3])
         startline+=1
 
 ##############################################################
 #data_alipay=read_data("alipay_record_20230924_235400.csv","alipay")
-data_alipay=read_data(r"C:\Users\WYZ\Desktop\alipay_record_20231010_214653_密码为身份证号码后6位\8月.csv","alipay")
+data_alipay=read_data(r"C:\Users\WYZ\Desktop\alipay_record_20231010_214653_密码为身份证号码后6位\9月.csv","alipay")
 data_wechat=read_data("副本 微信支付账单(20230917-20230924) - 副本.csv","wechat")
 data_total=data_alipay+data_wechat
 

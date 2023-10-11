@@ -12,7 +12,7 @@ encode_type_wechat='UTF-8'
 
 except_alipay=["等待付款","交易关闭"]
 
-color_gren="92D050"
+color_green="92D050"
 color_grey="E7E6E6"
 color_yellow="FFFF00"
 color_red="FF0000"
@@ -141,7 +141,7 @@ def format_data(data):
             if i[-3]=="收入":
                 i.append(color_orange)
             elif i[-3]=="资金周转":
-                i.append(color_gren)
+                i.append(color_green)
             elif i[-3]=="群收款收入":
                 i.append(color_orange)
             else:
@@ -150,7 +150,7 @@ def format_data(data):
             if i[-3]=="收入":
                 i.append(color_yellow)
             elif i[-3]=="资金周转":
-                i.append(color_gren)
+                i.append(color_green)
             else:
                 i.append(color_none)
     
@@ -164,21 +164,25 @@ def format_data(data):
     
     return main_ym,data
 
-def write_excel_format(main_ym):
+def preProcess(main_ym):
 
     year  = main_ym[0:4]    
     month = main_ym[5:]
     month_firstday = datetime.datetime.strptime("%s-%s-1"%(year,month), '%Y-%m-%d')
+    
+    print("输入数据最早起始日期为",end=" ")
     print(month_firstday.strftime("%Y-%m-%d"))
     month_firstday_weekday = month_firstday.weekday()+1
-    if    month_firstday.weekday()==1:
+    if    month_firstday_weekday==1:
         pass
-    elif  month_firstday.weekday()<=3:
+    elif  month_firstday_weekday<=4:
         month_firstday = month_firstday- datetime.timedelta(days=month_firstday_weekday-1)
-    elif  month_firstday.weekday()>=4:
+    elif  month_firstday_weekday>=5:
         month_firstday = month_firstday+ datetime.timedelta(days=8-month_firstday_weekday)
-    if month_firstday.weekday()+1!=1:
+    month_firstday_weekday = month_firstday.weekday()+1     #更新开始日期是星期几
+    if month_firstday_weekday!=1:
         print("记账起始日期不为周一，请检查！") #检查用
+    print("经计算，修改后起始日期为",end=" ")
     print(month_firstday.strftime("%Y-%m-%d"))
 
 
@@ -189,33 +193,27 @@ def write_excel_format(main_ym):
     month=str(month).rjust(2,"0")
     month_lastday = datetime.datetime.strptime("%s-%s-1"%(year,month), '%Y-%m-%d')
     month_lastday = month_lastday- datetime.timedelta(days=1)
-    print(month_lastday.strftime("%Y-%m-%d"))
+    
+    
     month_lastday_weekday = month_lastday.weekday()+1
-
-    if    month_lastday.weekday()==7:
+    if    month_lastday_weekday==7:
         pass
-    elif  month_lastday.weekday()<=3:
+    elif  month_lastday_weekday<=3:
         month_lastday = month_lastday- datetime.timedelta(days=month_lastday_weekday)
-    elif  month_lastday.weekday()>=4:
-        month_lastday = month_lastday+ datetime.timedelta(days=8-month_lastday_weekday)
-    if month_lastday.weekday()+1!=7:
+    elif  month_lastday_weekday>=4:
+        month_lastday = month_lastday+ datetime.timedelta(days=7-month_lastday_weekday)
+    month_lastday_weekday = month_lastday.weekday()+1       #更新结束日期是星期几
+    if month_lastday_weekday!=7:
         print("记账结束日期不为周日，请检查！") #检查用
+    print("修改后结束日期为",end=" ")
     print(month_lastday.strftime("%Y-%m-%d"))
+    week_num=int(((month_lastday-month_firstday).days+1)/7)
 
     wb=openpyxl.Workbook()
     del wb["Sheet"]         #打开新的excel若为空，会自动创建名为"Sheet"的工作表
-    for i in range(5):
+    for i in range(week_num):
         wb.create_sheet(index=i,title='第%s周'%(i+1))
         sheet=wb.worksheets[i]
-        sheet.column_dimensions["A"].width=20
-        sheet.column_dimensions["B"].width=30
-        sheet.column_dimensions["C"].width=20
-        sheet.column_dimensions["D"].width=20
-        sheet.column_dimensions["E"].width=20
-        sheet.column_dimensions["F"].width=20
-        sheet.column_dimensions["G"].width=20
-        sheet.column_dimensions["H"].width=20
-
         sheet['A1'].value='日期'
         sheet['B1'].value='项目'
         sheet['C1'].value='金额'
@@ -253,13 +251,43 @@ def write_excel_format(main_ym):
         sheet['F20'].value='群收款'
         sheet['G20'].value='收入'
         sheet['H20'].value='备注'
-    print(wb.sheetnames)
 
+        sheet['A14'].value='银行卡余额'
+        sheet['A15'].value='支付宝余额'
+        sheet['A16'].value='微信余额'
+        sheet['A17'].value='冻结金额'
 
-    return wb
+        sheet['B13'].value='本周数据'
+        sheet['C13'].value='上周数据'
+        sheet['D13'].value='支出'
 
-def write_excel_data(wb,data):
+        sheet['D14'].value='=C14-B14'
+        sheet['D15'].value='=C15-B15'
+        sheet['D16'].value='=C16-B16'
+        sheet['D17'].value='=C17-B17'
 
+        sheet['G11'].value='颜色'
+        sheet['G12'].value='无填充'
+        sheet['G13'].value='黄色';sheet['G13'].fill=PatternFill('solid',color_yellow)
+        sheet['G14'].value='灰色';sheet['G14'].fill=PatternFill('solid',color_grey  )
+        sheet['G15'].value='橙色';sheet['G15'].fill=PatternFill('solid',color_orange)
+        sheet['G16'].value='浅绿';sheet['G16'].fill=PatternFill('solid',color_green )
+        sheet['G17'].value='浅蓝';sheet['G17'].fill=PatternFill('solid',color_blue  )
+        sheet['G18'].value='红色';sheet['G18'].fill=PatternFill('solid',color_red   )
+
+        sheet['H11'].value='含义'
+        sheet['H12'].value='支付宝支出'
+        sheet['H13'].value='支付宝收入'
+        sheet['H14'].value='微信支出'
+        sheet['H15'].value='微信收入'
+        sheet['H16'].value='资金周转'
+        sheet['H17'].value='工资性收入'
+        sheet['H18'].value='其他'
+
+    
+    return wb,week_num
+
+def write_excel_data(wb,data,week_num):
     startline=20
     old_week_day=-1
     sheet_num=0
@@ -271,8 +299,9 @@ def write_excel_data(wb,data):
             continue        
         if i[0]>sheet_time_over:            #若有时间超过了范围，就进入下一个sheet
             sheet_num+=1                    #同时初始化所有相关值
-            if sheet_num>4:
+            if sheet_num>week_num-1:
                 break
+            
             sheet=wb.worksheets[sheet_num]
             startline=20
             old_week_day=-1
@@ -290,8 +319,6 @@ def write_excel_data(wb,data):
         else:
             sheet['B'+str(startline)].fill=openpyxl.styles.PatternFill(fill_type=None)
 
-        sheet['B'+str(startline)].font=Font(name="等线",size=11)
-
         if i[2]=="收入" :
             sheet['G'+str(startline)].value=float(i[3])
         elif i[2]=="资金周转":
@@ -302,31 +329,54 @@ def write_excel_data(wb,data):
             sheet['C'+str(startline)].value=float(i[3])
         startline+=1
 
-##############################################################
-#data_alipay=read_data("alipay_record_20230924_235400.csv","alipay")
-data_alipay=read_data(r"C:\Users\WYZ\Desktop\alipay_record_20231010_214653_密码为身份证号码后6位\9月.csv","alipay")
-data_wechat=read_data("副本 微信支付账单(20230917-20230924) - 副本.csv","wechat")
-data_total=data_alipay+data_wechat
+def postProcess(wb,week_num):
+    error=0.8
+    for i in range(week_num):
+        sheet=wb.worksheets[i]
+        for k in range(sheet.max_row):          #最大行数
+            sheet.row_dimensions[k].height=13.8
+            for j in range(sheet.max_column):   #最大列数
+                sheet.cell(k+1,j+1).font=Font(name="等线",size=11)
+                if (k+1>20 and j+1>2):
+                    sheet.cell(k+1,j+1).number_format = '\u00a5#,##0.00'
+        sheet.column_dimensions["A"].width=20+error
+        sheet.column_dimensions["B"].width=30+error
+        sheet.column_dimensions["C"].width=20+error
+        sheet.column_dimensions["D"].width=20+error
+        sheet.column_dimensions["E"].width=20+error
+        sheet.column_dimensions["F"].width=20+error
+        sheet.column_dimensions["G"].width=20+error
+        sheet.column_dimensions["H"].width=20+error
 
-del data_alipay
-del data_wechat
+    pass
+
+def main():
+    data_alipay=read_data(r"C:\Users\WYZ\Desktop\alipay_record_20231010_214653_密码为身份证号码后6位\9月.csv","alipay")
+    data_wechat=read_data("副本 微信支付账单(20230917-20230924) - 副本.csv","wechat")
+    data_total=data_alipay+data_wechat
+
+    del data_alipay
+    del data_wechat
 
 
-main_month,data_total=format_data(data_total)
+    main_month,data_total=format_data(data_total)
 
-wb=write_excel_format(main_month)         #写入初始框架
+    wb,week_num=preProcess(main_month)         #写入初始框架
 
-write_excel_data(wb,data_total) #写入数据
+    write_excel_data(wb,data_total,week_num) #写入数据
 
+    postProcess(wb,week_num)
 
+    excenName="账单"        #尝试保存
+    i=0
+    while(1):
+        try:
+            wb.save(excenName+'.xlsx')
+        except:
+            i=i+1
+            excenName="账单"+str(i)
+        else:
+            print(excenName+'.xlsx')
+            break
 
-excenName="账单"        #尝试保存
-i=0
-while(1):
-    try:
-        wb.save(excenName+'.xlsx')
-    except:
-        i=i+1
-        excenName="账单"+str(i)
-    else:
-        break
+main()

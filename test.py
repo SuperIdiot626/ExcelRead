@@ -231,17 +231,19 @@ def preProcess(main_ym):
         sheet['B3'].value=month_firstday.strftime("%Y-%m-%d")+" 23:59:59"
         month_firstday+=datetime.timedelta(days=1)
 
-
         sheet['A5'].value='收入'
         sheet['A6'].value='群收款收入'
         sheet['A7'].value='支出'
-        sheet['B5'].value="=SUMIF(G:G,\">0\")"
-        sheet['B6'].value="=SUMIF(F:F,\">0\")"
-        sheet['B7'].value="=SUMIF(C:C,\">0\")"
+        sheet['B5'].value='=SUM(G21:G:G)'
+        sheet['B6'].value='=SUM(F21:F:F)'
+        sheet['B7'].value='=SUM(C21:C:C)'
 
-        sheet['A9'].value='可报销支出'
+        sheet['A9' ].value='可报销支出'
         sheet['A10'].value='其他支出'
         sheet['A11'].value='实际个人支出'
+        sheet['B9' ].value='=SUM(D21:D:D)'
+        sheet['B10'].value='=SUM(E21:E:E)'
+        sheet['B11'].value='=B7-B6-B9-B10'
 
         sheet['A20'].value='日期'
         sheet['B20'].value='项目'
@@ -259,8 +261,14 @@ def preProcess(main_ym):
 
         sheet['B13'].value='本周数据'
         sheet['C13'].value='上周数据'
-        sheet['D13'].value='支出'
+        if(i!=0):
+            sheet['C14'].value='=第'+str(i+1)+'周!B14'
+            sheet['C15'].value='=第'+str(i+1)+'周!B15'
+            sheet['C16'].value='=第'+str(i+1)+'周!B16'
+            sheet['C17'].value='=第'+str(i+1)+'周!B17'
 
+
+        sheet['D13'].value='支出'
         sheet['D14'].value='=C14-B14'
         sheet['D15'].value='=C15-B15'
         sheet['D16'].value='=C16-B16'
@@ -284,7 +292,41 @@ def preProcess(main_ym):
         sheet['H17'].value='工资性收入'
         sheet['H18'].value='其他'
 
-    
+    wb.create_sheet(index=week_num,title='总结')
+    sheet=wb.worksheets[week_num]
+    line=1
+    for i in range(week_num):
+        sheet["A"+str(line)]="第%s周开销"%(i+1)
+        sheet["B"+str(line)]="=第%s周!B7"%(i+1)
+        line+=1
+
+    for i in range(week_num):
+        sheet["A"+str(line)]="第%s周可报销金额"%(i+1)
+        sheet["B"+str(line)]="=第%s周!B9"%(i+1)
+        line+=1
+
+    for i in range(week_num):
+        sheet["A"+str(line)]="第%s周群收款"%(i+1)
+        sheet["B"+str(line)]="=第%s周!B6"%(i+1)
+        line+=1
+
+    for i in range(week_num):
+        sheet["A"+str(line)]="第%s周其他支出"%(i+1)
+        sheet["B"+str(line)]="=第%s周!B10"%(i+1)
+        line+=1
+
+    sheet["A"+str(line+1)]="总支出"
+    sheet["A"+str(line+2)]="可报销支出"
+    sheet["A"+str(line+3)]="群收款"
+    sheet["A"+str(line+4)]="其他支出"
+    sheet["B"+str(line+1)]="=SUM(B%s:B%s)"%(week_num*0+1,week_num*1)
+    sheet["B"+str(line+2)]="=SUM(B%s:B%s)"%(week_num*1+1,week_num*2)
+    sheet["B"+str(line+3)]="=SUM(B%s:B%s)"%(week_num*2+1,week_num*3)
+    sheet["B"+str(line+4)]="=SUM(B%s:B%s)"%(week_num*3+1,week_num*4)
+
+    sheet["A"+str(line+6)]="实际个人支出"
+    sheet["B"+str(line+6)]="="+"B"+str(line+1)+"-B"+str(line+2)+"-B"+str(line+3)+"-B"+str(line+4)
+
     return wb,week_num
 
 def write_excel_data(wb,data,week_num):
@@ -331,14 +373,21 @@ def write_excel_data(wb,data,week_num):
 
 def postProcess(wb,week_num):
     error=0.8
-    for i in range(week_num):
-        sheet=wb.worksheets[i]
-        for k in range(sheet.max_row):          #最大行数
-            sheet.row_dimensions[k].height=13.8
-            for j in range(sheet.max_column):   #最大列数
-                sheet.cell(k+1,j+1).font=Font(name="等线",size=11)
-                if (k+1>20 and j+1>2):
-                    sheet.cell(k+1,j+1).number_format = '\u00a5#,##0.00'
+    for sheet_num in range(week_num):
+        sheet=wb.worksheets[sheet_num]
+        for row_num in range(1,sheet.max_row+1):          #最大行数
+            sheet.row_dimensions[row_num-1].height=13.8
+            for array_num in range(1,sheet.max_column+1):   #最大列数
+                sheet.cell(row_num,array_num).font=Font(name="等线",size=11)
+                if (row_num>20 and array_num>2):
+                    sheet.cell(row_num,array_num).number_format = '\u00a5#,##0.00'    #设置了人民币的符号
+                if (row_num>=2 and row_num<=11 and array_num==2):
+                    sheet.cell(row_num,array_num).number_format = '\u00a5#,##0.00'    #设置了人民币的符号
+                if (row_num>=14 and row_num<=17 and array_num>=2 and array_num<=4):
+                    sheet.cell(row_num,array_num).number_format = '\u00a5#,##0.00'    #设置了人民币的符号
+        
+        
+
         sheet.column_dimensions["A"].width=20+error
         sheet.column_dimensions["B"].width=30+error
         sheet.column_dimensions["C"].width=20+error
@@ -347,12 +396,20 @@ def postProcess(wb,week_num):
         sheet.column_dimensions["F"].width=20+error
         sheet.column_dimensions["G"].width=20+error
         sheet.column_dimensions["H"].width=20+error
-
-    pass
+    
+    sheet=wb.worksheets[sheet_num+1]
+    sheet.column_dimensions["A"].width=20+error
+    sheet.column_dimensions["B"].width=30+error
+    for row_num in range(1,sheet.max_row+1):          #最大行数
+            sheet.row_dimensions[row_num-1].height=13.8
+            for array_num in range(1,sheet.max_column+1):   #最大列数
+                sheet.cell(row_num,array_num).font=Font(name="等线",size=11)
+                if (array_num==2):
+                    sheet.cell(row_num,array_num).number_format = '\u00a5#,##0.00'    #设置了人民币的符号
 
 def main():
-    data_alipay=read_data(r"C:\Users\WYZ\Desktop\alipay_record_20231010_214653_密码为身份证号码后6位\9月.csv","alipay")
-    data_wechat=read_data("副本 微信支付账单(20230917-20230924) - 副本.csv","wechat")
+    data_alipay=read_data(r"c:\Users\WYZ\Desktop\微信支付账单(20230826-20231012)\alipay_record_20231010_2146531.csv","alipay")
+    data_wechat=read_data(r"c:\Users\WYZ\Desktop\微信支付账单(20230826-20231012)\微信支付账单(20230826-20231012).csv","wechat")
     data_total=data_alipay+data_wechat
 
     del data_alipay

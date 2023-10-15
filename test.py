@@ -161,7 +161,7 @@ def format_data(data):
         if max_days<days_in_month:
             max_days=days_in_month
             main_ym=key
-    
+    print("输入数据中，主要月份为:"+main_ym)
     return main_ym,data
 
 def preProcess(main_ym):
@@ -170,7 +170,7 @@ def preProcess(main_ym):
     month = main_ym[5:]
     month_firstday = datetime.datetime.strptime("%s-%s-1"%(year,month), '%Y-%m-%d')
     
-    print("输入数据最早起始日期为",end=" ")
+    print("主要月份的最早起始日期为",end=" ")
     print(month_firstday.strftime("%Y-%m-%d"))
     month_firstday_weekday = month_firstday.weekday()+1
     if    month_firstday_weekday==1:
@@ -182,7 +182,7 @@ def preProcess(main_ym):
     month_firstday_weekday = month_firstday.weekday()+1     #更新开始日期是星期几
     if month_firstday_weekday!=1:
         print("记账起始日期不为周一，请检查！") #检查用
-    print("经计算，修改后起始日期为",end=" ")
+    print("经计算：\n修改后表格的起始日期为",end=" ")
     print(month_firstday.strftime("%Y-%m-%d"))
 
 
@@ -205,9 +205,10 @@ def preProcess(main_ym):
     month_lastday_weekday = month_lastday.weekday()+1       #更新结束日期是星期几
     if month_lastday_weekday!=7:
         print("记账结束日期不为周日，请检查！") #检查用
-    print("修改后结束日期为",end=" ")
+    print("修改后表格的结束日期为",end=" ")
     print(month_lastday.strftime("%Y-%m-%d"))
     week_num=int(((month_lastday-month_firstday).days+1)/7)
+    print("总计%d周，共%d天"%(week_num,week_num*7))
 
     wb=openpyxl.Workbook()
     del wb["Sheet"]         #打开新的excel若为空，会自动创建名为"Sheet"的工作表
@@ -407,6 +408,21 @@ def postProcess(wb,week_num):
                 if (array_num==2):
                     sheet.cell(row_num,array_num).number_format = '\u00a5#,##0.00'    #设置了人民币的符号
 
+def save_excel(wb,main_month):
+    excenName_temp=main_month+"账单"        #尝试保存
+    excenName     =excenName_temp
+    i=0
+    while(1):
+        try:
+            wb.save(excenName+'.xlsx')
+        except:
+            i=i+1
+            excenName=excenName_temp+str(i)
+        else:
+            print("*************************")
+            print("已保存为"+excenName+'.xlsx')
+            break
+
 def main():
     data_alipay=read_data(r"c:\Users\WYZ\Desktop\微信支付账单(20230826-20231012)\alipay_record_20231010_2146531.csv","alipay")
     data_wechat=read_data(r"c:\Users\WYZ\Desktop\微信支付账单(20230826-20231012)\微信支付账单(20230826-20231012).csv","wechat")
@@ -424,16 +440,7 @@ def main():
 
     postProcess(wb,week_num)
 
-    excenName="账单"        #尝试保存
-    i=0
-    while(1):
-        try:
-            wb.save(excenName+'.xlsx')
-        except:
-            i=i+1
-            excenName="账单"+str(i)
-        else:
-            print(excenName+'.xlsx')
-            break
+    save_excel(wb,main_month,)
+    
 
 main()

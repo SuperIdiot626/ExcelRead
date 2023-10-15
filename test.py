@@ -2,6 +2,8 @@
 import datetime
 import openpyxl
 import csv
+import sys
+import os
 from openpyxl.styles import PatternFill     # 导入填充模块
 from openpyxl.styles import Font
 
@@ -21,23 +23,34 @@ color_blue="00B0F0"
 color_none=None
 
 
-def read_data(file_path,input_type):
-    if(input_type=="alipay"):               #配置输入相关属性
-        encoding_type=encode_type_alipay
-        time_format=r"%Y-%m-%d %H:%M:%S"
-    if(input_type=="wechat"):
-        encoding_type=encode_type_wechat
-        time_format=r"%Y-%m-%d %H:%M:%S"
-
+def read_data(file_path):
+    time_format=r"%Y-%m-%d %H:%M:%S"
+    input_type=None
     data=[]
-    with open(file_path, 'r',encoding=encoding_type,) as file:  #读取数据写入data
-        reader = csv.reader(file)
-        for row in reader:
-            data.append(row)    
-    
+    if not os.path.exists(file_path):
+        print("输入的文件不存在！")
+        print("请检查该文件路径的正确性：%s"%file_path)
+        sys.exit()
+
+    try:
+        with open(file_path, 'r',encoding='gb18030') as file:  #读取数据写入data
+            reader = csv.reader(file)
+            for row in reader:
+                data.append(row)
+    except:
+        with open(file_path, 'r',encoding='UTF-8'  ) as file:
+            reader = csv.reader(file)
+            for row in reader:
+                data.append(row)
+
     for i in range(len(data)):                                  #找到真正需要的部分
         if data[i]==[]:
             continue
+        if input_type==None:
+            if "支付宝" in data[i][0]:
+                input_type="alipay"
+            if "微信" in data[i][0]:
+                input_type="wechat"
         if data[i][0]=="交易时间":
             break
     data=data[:i:-1]                                            #然后切除并从按日期从前往后排列
@@ -424,12 +437,28 @@ def save_excel(wb,main_month):
             break
 
 def main():
-    data_alipay=read_data(r"c:\Users\WYZ\Desktop\微信支付账单(20230826-20231012)\alipay_record_20231010_2146531.csv","alipay")
-    data_wechat=read_data(r"c:\Users\WYZ\Desktop\微信支付账单(20230826-20231012)\微信支付账单(20230826-20231012).csv","wechat")
-    data_total=data_alipay+data_wechat
+    print("使用方法：")
+    print("①命令行使用 python3 ZhangDanCheck.py <file path 1> <file path 2> ...")
+    print("①运行程序后根据提示进行输入")
 
-    del data_alipay
-    del data_wechat
+    data_total=[]
+    if len(sys.argv)!=1:
+        print(sys.argv)
+        for i in sys.argv[1:]:
+            data_total+=read_data(i)
+    else:
+        i=1
+        file_path=[]
+        print("请添加需要读取的excel表格路径，输入0来停止添加：")
+        while 1:
+            file_path_temp=input("第%d个待读取表格路径："%i)
+            if file_path_temp=="0":
+                break
+            file_path.append(file_path_temp)
+            i+=1
+        for i in file_path:
+            data_total+=read_data(i)
+
 
 
     main_month,data_total=format_data(data_total)

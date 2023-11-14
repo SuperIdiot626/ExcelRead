@@ -12,7 +12,7 @@ encode_type_wechat='UTF-8'
 
 
 
-except_alipay=["等待付款","交易关闭"]
+except_alipay=["等待付款"]
 
 color_green="92D050"
 color_grey="E7E6E6"
@@ -67,6 +67,12 @@ def read_data(file_path):
             if(data[i][8] in except_alipay or float(data[i][6])==0):        #交易状态以及交易金额判断
                 del data[i]
                 continue
+            if(data[i][8]=="交易关闭"):     #该两个条件满足时说明是退款
+                if(data[i][5]=="不计收支"):
+                    del data[i]
+                    continue
+            if(data[i][8]=="退款成功"):
+                data[i][5]="退款"
             if(data[i][4][-4:]=="收益发放"):    #处理余额宝利息
                 data[i][2]=""
                 data[i][4]="余额宝利息"
@@ -164,6 +170,8 @@ def format_data(data):
                 i.append(color_yellow)
             elif i[-3]=="资金周转":
                 i.append(color_green)
+            elif i[-3]=="退款":
+                i.append(color_yellow)
             else:
                 i.append(color_none)
     
@@ -233,7 +241,7 @@ def preProcess(main_ym):
         sheet['C1'].value='金额'
         sheet['D1'].value='可报销支出'
         sheet['E1'].value='其他支出'
-        sheet['F1'].value='群收款'
+        sheet['F1'].value='资金回收'
         sheet['G1'].value='收入'
         sheet['H1'].value='备注'
         
@@ -246,7 +254,7 @@ def preProcess(main_ym):
         month_firstday+=datetime.timedelta(days=1)
 
         sheet['A5'].value='收入'
-        sheet['A6'].value='群收款收入'
+        sheet['A6'].value='资金回收'
         sheet['A7'].value='支出'
         sheet['B5'].value='=SUM(G21:G:G)'
         sheet['B6'].value='=SUM(F21:F:F)'
@@ -264,7 +272,7 @@ def preProcess(main_ym):
         sheet['C20'].value='金额'
         sheet['D20'].value='可报销支出'
         sheet['E20'].value='其他支出'
-        sheet['F20'].value='群收款'
+        sheet['F20'].value='资金回收'
         sheet['G20'].value='收入'
         sheet['H20'].value='备注'
 
@@ -380,6 +388,8 @@ def write_excel_data(wb,data,week_num):
         elif i[2]=="资金周转":
             sheet['B'+str(startline)].value=str(i[1]+i[3])
         elif i[2]=="群收款收入":
+            sheet['F'+str(startline)].value=float(i[3])
+        elif i[2]=="退款":
             sheet['F'+str(startline)].value=float(i[3])
         else:
             sheet['C'+str(startline)].value=float(i[3])
